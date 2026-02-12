@@ -555,9 +555,17 @@ namespace Microsoft.Xna.Framework.Graphics
         private void PlatformSetViewport(ref Viewport value)
         {
             if (IsRenderTargetBound)
+            {
                 GL.Viewport(value.X, value.Y, value.Width, value.Height);
+            }
             else
-                GL.Viewport(value.X, PresentationParameters.BackBufferHeight - value.Y - value.Height, value.Width, value.Height);
+            {
+                var backBufferHeight = PresentationParameters.BackBufferHeight;
+#if DESKTOPGL
+                GetDrawableBackBufferSize(out _, out backBufferHeight);
+#endif
+                GL.Viewport(value.X, backBufferHeight - value.Y - value.Height, value.Width, value.Height);
+            }
             GraphicsExtensions.LogGLError("GraphicsDevice.Viewport_set() GL.Viewport");
 
             GL.DepthRange(value.MinDepth, value.MaxDepth);
@@ -993,7 +1001,13 @@ namespace Microsoft.Xna.Framework.Graphics
 	        {
                 var scissorRect = _scissorRectangle;
                 if (!IsRenderTargetBound)
-                    scissorRect.Y = PresentationParameters.BackBufferHeight - (scissorRect.Y + scissorRect.Height);
+                {
+                    var backBufferHeight = PresentationParameters.BackBufferHeight;
+#if DESKTOPGL
+                    GetDrawableBackBufferSize(out _, out backBufferHeight);
+#endif
+                    scissorRect.Y = backBufferHeight - (scissorRect.Y + scissorRect.Height);
+                }
                 GL.Scissor(scissorRect.X, scissorRect.Y, scissorRect.Width, scissorRect.Height);
                 GraphicsExtensions.CheckGLError();
 	            _scissorRectangleDirty = false;
@@ -1238,9 +1252,14 @@ namespace Microsoft.Xna.Framework.Graphics
 
         private void PlatformGetBackBufferData<T>(Rectangle? rectangle, T[] data, int startIndex, int count) where T : struct
         {
-            var rect = rectangle ?? new Rectangle(0, 0, PresentationParameters.BackBufferWidth, PresentationParameters.BackBufferHeight);
+            var backBufferWidth = PresentationParameters.BackBufferWidth;
+            var backBufferHeight = PresentationParameters.BackBufferHeight;
+#if DESKTOPGL
+            GetDrawableBackBufferSize(out backBufferWidth, out backBufferHeight);
+#endif
+            var rect = rectangle ?? new Rectangle(0, 0, backBufferWidth, backBufferHeight);
             var tSize = Marshal.SizeOf<T>();
-            var flippedY = PresentationParameters.BackBufferHeight - rect.Y - rect.Height;
+            var flippedY = backBufferHeight - rect.Y - rect.Height;
             GL.ReadPixels(rect.X, flippedY, rect.Width, rect.Height, PixelFormat.Rgba, PixelType.UnsignedByte, data);
 
             // buffer is returned upside down, so we swap the rows around when copying over
@@ -1264,6 +1283,29 @@ namespace Microsoft.Xna.Framework.Graphics
         {
             return new Rectangle(x, y, width, height);
         }
+
+#if DESKTOPGL
+        private void GetDrawableBackBufferSize(out int width, out int height)
+        {
+            width = PresentationParameters.BackBufferWidth;
+            height = PresentationParameters.BackBufferHeight;
+
+            var window = SdlGameWindow.Instance;
+            if (window == null)
+                return;
+
+            var handle = window.Handle;
+            if (handle == IntPtr.Zero)
+                return;
+
+            Sdl.GL.GetDrawableSize(handle, out var drawableWidth, out var drawableHeight);
+            if (drawableWidth > 0 && drawableHeight > 0)
+            {
+                width = drawableWidth;
+                height = drawableHeight;
+            }
+        }
+#endif
         
         internal void PlatformSetMultiSamplingToMaximum(PresentationParameters presentationParameters, out int quality)
         {

@@ -49,7 +49,14 @@ namespace Microsoft.Xna.Framework
                 Sdl.GL.SetAttribute(Sdl.GL.Attribute.MultiSampleSamples, presentationParameters.MultiSampleCount);
             }
 
-            ((SdlGameWindow)SdlGameWindow.Instance).CreateWindow();
+            var window = (SdlGameWindow)SdlGameWindow.Instance;
+            window.CreateWindow();
+            Sdl.GL.GetDrawableSize(window.Handle, out var drawableWidth, out var drawableHeight);
+            if (drawableWidth > 0 && drawableHeight > 0)
+            {
+                presentationParameters.BackBufferWidth = drawableWidth;
+                presentationParameters.BackBufferHeight = drawableHeight;
+            }
         }
     }
 }

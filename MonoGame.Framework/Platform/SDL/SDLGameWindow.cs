@@ -132,7 +132,7 @@ namespace Microsoft.Xna.Framework
 
             _handle = Sdl.Window.Create("", 0, 0,
                 GraphicsDeviceManager.DefaultBackBufferWidth, GraphicsDeviceManager.DefaultBackBufferHeight,
-                Sdl.Window.State.Hidden | Sdl.Window.State.FullscreenDesktop);
+                Sdl.Window.State.Hidden | Sdl.Window.State.FullscreenDesktop | Sdl.Window.State.AllowHighDPI);
         }
 
         internal void CreateWindow()
@@ -141,7 +141,8 @@ namespace Microsoft.Xna.Framework
                 Sdl.Window.State.OpenGL |
                 Sdl.Window.State.Hidden |
                 Sdl.Window.State.InputFocus |
-                Sdl.Window.State.MouseFocus;
+                Sdl.Window.State.MouseFocus |
+                Sdl.Window.State.AllowHighDPI;
 
             if (_handle != IntPtr.Zero)
                 Sdl.Window.Destroy(_handle);
@@ -302,19 +303,28 @@ namespace Microsoft.Xna.Framework
 
         public void ClientResize(int width, int height)
         {
+            int drawableWidth;
+            int drawableHeight;
+            Sdl.GL.GetDrawableSize(Handle, out drawableWidth, out drawableHeight);
+            if (drawableWidth <= 0 || drawableHeight <= 0)
+            {
+                drawableWidth = width;
+                drawableHeight = height;
+            }
+
             // SDL reports many resize events even if the Size didn't change.
             // Only call the code below if it actually changed.
-            if (_game.GraphicsDevice.PresentationParameters.BackBufferWidth == width &&
-                _game.GraphicsDevice.PresentationParameters.BackBufferHeight == height) {
+            if (_game.GraphicsDevice.PresentationParameters.BackBufferWidth == drawableWidth &&
+                _game.GraphicsDevice.PresentationParameters.BackBufferHeight == drawableHeight) {
                 return;
             }
 
             if (_game.GraphicsDevice.RasterizerState.ScissorTestEnable && _game.GraphicsDevice.ScissorRectangle == _game.GraphicsDevice.Viewport.Bounds)
-                _game.GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, width, height);
+                _game.GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, drawableWidth, drawableHeight);
 
-            _game.GraphicsDevice.PresentationParameters.BackBufferWidth = width;
-            _game.GraphicsDevice.PresentationParameters.BackBufferHeight = height;
-            _game.GraphicsDevice.Viewport = new Viewport(0, 0, width, height);
+            _game.GraphicsDevice.PresentationParameters.BackBufferWidth = drawableWidth;
+            _game.GraphicsDevice.PresentationParameters.BackBufferHeight = drawableHeight;
+            _game.GraphicsDevice.Viewport = new Viewport(0, 0, drawableWidth, drawableHeight);
 
             Sdl.Window.GetSize(Handle, out _width, out _height);
 
